@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'note.dart';
+import 'eventi.dart';
+import 'impostazioni.dart';
+
 
 void main() {
   runApp(NoteApp());
@@ -63,50 +67,8 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blue,
+        //selectedItemColor: Colors.blue,
         onTap: _onItemTapped,
-      ),
-    );
-  }
-}
-
-class PaginaEventi extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      child: Center(
-        child: Text(
-          'Eventi',
-          style: TextStyle(fontSize: 24),
-        ),
-      ),
-    );
-  }
-}
-
-class PaginaNote extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      child: Center(
-        child: Text(
-          'Note',
-          style: TextStyle(fontSize: 24),
-        ),
-      ),
-    );
-  }
-}
-
-class PaginaImpostazioni extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      child: Center(
-        child: Text(
-          'Impostazioni',
-          style: TextStyle(fontSize: 24),
-        ),
       ),
     );
   }
