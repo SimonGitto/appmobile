@@ -29,10 +29,11 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
+   List<String> _listaNote = [];
 
-  static List<Widget> _widgetOptions = <Widget>[
+   List<Widget> _widgetOptions(List<String> listaNote) =>  <Widget>[
     PaginaEventi(),
-    PaginaNote(),
+    PaginaNote(listaNote : _listaNote,onAddNotePressed: _addNote),
     PaginaImpostazioni(),
   ];
 
@@ -42,14 +43,53 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+    void _addNote() async {
+    String? newNote = await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        TextEditingController _textFieldController = TextEditingController();
+
+        return AlertDialog(
+          title: Text('Aggiungi Nota'),
+          content: TextField(
+            controller: _textFieldController,
+            decoration: InputDecoration(hintText: "Inserisci la tua nota"),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Annulla'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text('Aggiungi'),
+              onPressed: () {
+                Navigator.of(context).pop(_textFieldController.text);
+              },
+            ),
+          ],
+        );
+      },
+    );
+
+    if (newNote != null && newNote.isNotEmpty) {
+      setState(() {
+        _listaNote.add(newNote);
+      });
+    }
+  }
+
+  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Note App'),
+        title:const Center(child: Text('Note App')),
       ),
       body: Center(
-        child: _widgetOptions.elementAt(_selectedIndex),
+        child: _widgetOptions(_listaNote).elementAt(_selectedIndex),
       ),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
@@ -67,7 +107,7 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
         currentIndex: _selectedIndex,
-        //selectedItemColor: Colors.blue,
+        selectedItemColor: Colors.red,
         onTap: _onItemTapped,
       ),
     );
