@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'note.dart';
 import 'eventi.dart';
 import 'impostazioni.dart';
-
+import 'line.dart';
+import 'aggiuntaNota.dart';
+import 'scritturaNota.dart';
 
 void main() {
   runApp(NoteApp());
@@ -15,7 +17,7 @@ class NoteApp extends StatelessWidget {
     return MaterialApp(
       title: 'App',
       theme: ThemeData(
-        primarySwatch: Colors.purple,
+        primarySwatch: Colors.red,
       ),
       home: HomePage(),
     );
@@ -29,87 +31,78 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
-   List<String> _listaNote = [];
+  List<Map<String, String>> _listaNote = [];
 
-   List<Widget> _widgetOptions(List<String> listaNote) =>  <Widget>[
-    PaginaEventi(),
-    PaginaNote(listaNote : _listaNote,onAddNotePressed: _addNote),
-    PaginaImpostazioni(),
-  ];
+   List<Widget> _widgetOptions() {
+     return <Widget>[
+       TopLine(child: PaginaEventi()),
+       TopLine(child: PaginaNote(
+           listaNote: _listaNote, onAddNotePressed: _addNote)),
+       TopLine(child: PaginaImpostazioni()),
+     ];
+   }
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
+     void _onItemTapped(int index) {
+       setState(() {
+         _selectedIndex = index;
+       });
+     }
 
-    void _addNote() async {
-    String? newNote = await showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        TextEditingController _textFieldController = TextEditingController();
+     void _addNote() async {
+       String? noteTitle = await Navigator.of(context).push(
+         MaterialPageRoute(builder: (context) => AddNoteTitlePage()),
+       );
 
-        return AlertDialog(
-          title: Text('Aggiungi Nota'),
-          content: TextField(
-            controller: _textFieldController,
-            decoration: InputDecoration(hintText: "Inserisci la tua nota"),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: Text('Annulla'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              child: Text('Aggiungi'),
-              onPressed: () {
-                Navigator.of(context).pop(_textFieldController.text);
-              },
-            ),
-          ],
-        );
-      },
-    );
+       if (noteTitle != null && noteTitle.isNotEmpty) {
+         Map<String, String>? noteContent = await Navigator.of(context).push(
+           MaterialPageRoute(builder: (context) => AddNoteContentPage(title: noteTitle)),
+         );
 
-    if (newNote != null && newNote.isNotEmpty) {
-      setState(() {
-        _listaNote.add(newNote);
-      });
-    }
-  }
+         if (noteContent != null && noteContent['content']!.isNotEmpty) {
+           setState(() {
+             _listaNote.add({
+               'title': noteTitle,
+               'content': noteContent['content']!,
+             });
+           });
+         }
+       }
+     }
 
-  
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title:const Center(child: Text('Note App')),
-      ),
-      body: Center(
-        child: _widgetOptions(_listaNote).elementAt(_selectedIndex),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.event),
-            label: 'Eventi',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.notes),
-            label: 'Note',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Impostazioni',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.red,
-        onTap: _onItemTapped,
-      ),
-    );
-  }
+     @override
+     Widget build(BuildContext context) {
+       return Scaffold(
+         appBar: AppBar(
+           title:Text(
+               'Note App',
+               style:TextStyle(
+                 color:Colors.red,
+                 fontWeight: FontWeight.bold,
+                 fontSize: 24,
+               )),
+         ),
+         body: Center(
+           child: _widgetOptions().elementAt(_selectedIndex),
+         ),
+         bottomNavigationBar: BottomNavigationBar(
+           items: const <BottomNavigationBarItem>[
+             BottomNavigationBarItem(
+               icon: Icon(Icons.event),
+               label: 'Eventi',
+             ),
+             BottomNavigationBarItem(
+               icon: Icon(Icons.notes),
+               label: 'Note',
+             ),
+             BottomNavigationBarItem(
+               icon: Icon(Icons.settings),
+               label: 'Impostazioni',
+             ),
+           ],
+           currentIndex: _selectedIndex,
+           selectedItemColor: Colors.red,
+           onTap: _onItemTapped,
+         ),
+       );
+     }
 }
