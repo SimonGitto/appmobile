@@ -1,37 +1,54 @@
 import 'package:flutter/material.dart';
 
-class AddNoteTitlePage extends StatelessWidget {
-  final TextEditingController _titleController = TextEditingController();
+class AddNoteTitlePage extends StatefulWidget {
+  @override
+  _AddNoteTitlePageState createState() => _AddNoteTitlePageState();
+}
+
+class _AddNoteTitlePageState extends State<AddNoteTitlePage> {
+  final _titleController = TextEditingController();
+
+  void _saveTitle() {
+    Navigator.of(context).pop(_titleController.text);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Inserisci una nuova nota'),
+        title: Text('Inserisci Titolo'),
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            TextField(
-              controller: _titleController,
-              decoration: InputDecoration(hintText: 'Titolo'),
-            ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop(_titleController.text);
-              },
-              child: Text('Continua'),
-              style: ButtonStyle(
-                foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                backgroundColor: WidgetStateProperty.all<Color>(Colors.red),
-                shadowColor: WidgetStateProperty.all<Color>(Colors.red),
-              ),
-            ),
-          ],
+        padding: const EdgeInsets.all(8.0),
+        child: TextField(
+          controller: _titleController,
+          decoration: InputDecoration(
+            labelText: 'Titolo',
+          ),
         ),
       ),
+      floatingActionButton: IconButton(
+        icon: const Icon(Icons.save),
+        style: ButtonStyle(
+          foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+          backgroundColor: WidgetStateProperty.all<Color>(Colors.red),
+          shadowColor: WidgetStateProperty.all<Color>(Colors.red),
+        ),
+        onPressed: _saveTitle,
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }
+
+
+
+/*
+child: Text('Continua'),
+style: ButtonStyle(
+foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+backgroundColor: WidgetStateProperty.all<Color>(Colors.red),
+shadowColor: WidgetStateProperty.all<Color>(Colors.red),
+),
+
+ */

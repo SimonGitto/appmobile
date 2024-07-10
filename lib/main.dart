@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
+
 import 'note.dart';
 import 'eventi.dart';
 import 'impostazioni.dart';
 import 'line.dart';
-import 'aggiuntaNota.dart';
-import 'scritturaNota.dart';
+
+
 
 void main() {
   runApp(NoteApp());
@@ -15,7 +16,7 @@ class NoteApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'App',
+      title: 'Note App',
       theme: ThemeData(
         primarySwatch: Colors.red,
       ),
@@ -29,6 +30,60 @@ class HomePage extends StatefulWidget {
   _HomePageState createState() => _HomePageState();
 }
 
+class _HomePageState extends State<HomePage> {
+  int _selectedIndex = 0;
+  final List<Widget> _widgetOptions = <Widget>[
+    TopLine(child: PaginaEventi()),
+    TopLine(child:PaginaNote()),
+    TopLine(child:PaginaImpostazioni()),
+  ];
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Note App'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(4.0),
+          child: Container(
+            color: Colors.grey,
+            height: 2.0,
+          ),
+        ),
+      ),
+      body: _widgetOptions.elementAt(_selectedIndex),
+      bottomNavigationBar: BottomNavigationBar(
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.event),
+            label: 'Eventi',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.notes),
+            label: 'Note',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings),
+            label: 'Impostazioni',
+          ),
+        ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Colors.red,
+        onTap: _onItemTapped,
+      ),
+    );
+  }
+}
+
+
+
+/*
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   List<Map<String, String>> _listaNote = [];
@@ -74,7 +129,7 @@ class _HomePageState extends State<HomePage> {
        return Scaffold(
          appBar: AppBar(
            title:Text(
-               'Note App',
+               'Annotati',
                style:TextStyle(
                  color:Colors.red,
                  fontWeight: FontWeight.bold,
@@ -105,4 +160,8 @@ class _HomePageState extends State<HomePage> {
          ),
        );
      }
+
+
 }
+
+ */
