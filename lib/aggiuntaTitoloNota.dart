@@ -1,16 +1,32 @@
 import 'package:flutter/material.dart';
 
+
 class AddNoteTitlePage extends StatefulWidget {
+  final Function(String) onTitleSaved;
+  AddNoteTitlePage({required this.onTitleSaved});
+
   @override
   _AddNoteTitlePageState createState() => _AddNoteTitlePageState();
 }
 
 class _AddNoteTitlePageState extends State<AddNoteTitlePage> {
-  final _titleController = TextEditingController();
+  final TextEditingController _titleController = TextEditingController();
 
   void _saveTitle() {
-    Navigator.of(context).pop(_titleController.text);
+    final title = _titleController.text.trim();
+    if (title.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            duration: Duration(seconds:  3),
+            content: Text('Il titolo non può essere vuoto')
+        ),
+      );
+      return;
+    }
+    Navigator.of(context).pop(title); // Return the title back to NotesPage
   }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -42,13 +58,3 @@ class _AddNoteTitlePageState extends State<AddNoteTitlePage> {
 }
 
 
-
-/*
-child: Text('Continua'),
-style: ButtonStyle(
-foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-backgroundColor: WidgetStateProperty.all<Color>(Colors.red),
-shadowColor: WidgetStateProperty.all<Color>(Colors.red),
-),
-
- */
