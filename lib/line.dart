@@ -6,7 +6,6 @@ class TopLine extends StatelessWidget {
 
   TopLine({
     required this.child,
-
   });
 
   @override

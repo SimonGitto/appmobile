@@ -12,5 +12,6 @@ class PaginaImpostazioni extends StatelessWidget {
       ),
     );
   }
+
 }
 
