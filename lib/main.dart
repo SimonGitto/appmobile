@@ -1,5 +1,7 @@
+import 'package:appmobile/reminder.dart';
 import 'package:flutter/material.dart';
 
+import 'package:intl/date_symbol_data_local.dart';
 
 import 'nota.dart';
 import 'note.dart';
@@ -9,9 +11,11 @@ import 'line.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 
+
 void main() async{
   WidgetsFlutterBinding.ensureInitialized();
 
+  await initializeDateFormatting('it_IT', null);
   final directory = await getApplicationDocumentsDirectory();
   await Hive.initFlutter(directory.path);
 
@@ -41,7 +45,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   final List<Widget> _widgetOptions = <Widget>[
-    TopLine(child: PaginaEventi()),
+    TopLine(child: CalendarioPage()),
     TopLine(child:NotesPage()),
     TopLine(child:PaginaImpostazioni()),
   ];
@@ -70,7 +74,7 @@ class _HomePageState extends State<HomePage> {
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
             icon: Icon(Icons.event),
-            label: 'Eventi',
+            label: 'Calendario',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.notes),
