@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -5,6 +7,7 @@ import 'dart:convert';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:url_launcher/url_launcher.dart';
 
 
 class CalendarioPage extends StatefulWidget {
@@ -12,51 +15,94 @@ class CalendarioPage extends StatefulWidget {
   _CalendarioPageState createState() => _CalendarioPageState();
 }
 
+
 class _CalendarioPageState extends State<CalendarioPage> {
   CalendarFormat _calendarFormat = CalendarFormat.month;
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   List<Map<String, dynamic>> _reminders = [];
-  List<Map<String, dynamic>> _events = []; // Lista per gli eventi
+  List<Map<String, dynamic>> _events = [];
   bool _isCalendarVisible = true;
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-
 
   @override
   void initState() {
     super.initState();
+    tz.initializeTimeZones();
+    tz.setLocalLocation(tz.getLocation('Europe/Rome'));
     _loadReminders();
-    _initializeNotifications();
+    initializeNotifications();
   }
 
 
-  Future<void> _initializeNotifications() async {
-    const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('app_icon');
-    final InitializationSettings initializationSettings = InitializationSettings(android: initializationSettingsAndroid);
+
+
+
+  void initializeNotifications() async {
+    const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('ic_launcher');
+    const InitializationSettings initializationSettings = InitializationSettings(
+      android: initializationSettingsAndroid,
+    );
+
     await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+
+    if (Platform.isAndroid) {
+      final granted = await flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.areNotificationsEnabled() ?? false;
+
+      if (granted) {
+        print("Permesso per le notifiche concesso.");
+      } else {
+        print("Permesso per le notifiche negato. Vai nelle impostazioni per attivarlo.");
+        _openAppSettings(); // Chiama la funzione per aprire le impostazioni
+      }
+    }
   }
+
+  void _openAppSettings() async {
+    const url = 'app-settings:'; // URL per aprire le impostazioni dell'app
+    if (await canLaunch(url)) {
+      await launch(url);
+    } else {
+      print("Non è stato possibile aprire le impostazioni dell'app.");
+    }
+  }
+
+
+
+
+  Future<bool> isAndroid13OrAbove() async {
+    final version = int.tryParse(Platform.version.split('.')[0]) ?? 0;
+    return version >= 33; // Android 13 = API level 33
+  }
+
 
 
   Future<void> _scheduleNotification(DateTime scheduledTime, String title, String body) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
+      'default_channel_id',
+      'Default Channel',
+      channelDescription: 'Channel for scheduled notifications',
+      importance: Importance.high,
+      priority: Priority.high,
+      playSound: true,
+    );
+
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(android: androidPlatformChannelSpecifics);
+
     await flutterLocalNotificationsPlugin.zonedSchedule(
       0,
       title,
       body,
       tz.TZDateTime.from(scheduledTime, tz.local),
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'your_channel_id',
-          'your_channel_name',
-          channelDescription: 'your_channel_description',
-          importance: Importance.high,
-          priority: Priority.high,
-        ),
-      ),
+      platformChannelSpecifics,
       androidAllowWhileIdle: true,
       uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time, // Usa solo l'orario, ignorando la data
+      matchDateTimeComponents: DateTimeComponents.time,
     );
   }
+
 
 
 
@@ -87,7 +133,6 @@ class _CalendarioPageState extends State<CalendarioPage> {
     });
     _saveReminders();
 
-    //notifiche push
     for (int day in days) {
       DateTime now = DateTime.now();
       DateTime reminderDateTime = DateTime(
@@ -217,7 +262,7 @@ class _CalendarioPageState extends State<CalendarioPage> {
                 _addReminder(selectedTime, selectedDays);
                 Navigator.of(context).pop();
               },
-              child: Text('Salva'),
+              child: const Text('Salva'),
             ),
           ],
         );
@@ -299,7 +344,7 @@ Widget build(BuildContext context) {
             isSelected: [_isCalendarVisible, !_isCalendarVisible],
             onPressed: (index) {
               setState(() {
-                _isCalendarVisible = index == 0; // 0 significa che il calendario è visibile
+                _isCalendarVisible = index == 0; // 0 calendario visibile
               });
             },
             children: const [
@@ -322,7 +367,7 @@ Widget build(BuildContext context) {
     ),
     floatingActionButton: _isCalendarVisible
         ? IconButton(
-      icon: Icon(Icons.add), // Pulsante per aggiungere eventi
+      icon: const Icon(Icons.add), // Pulsante eventi
       onPressed: _showEventDialog,
       tooltip: 'Aggiungi Evento',
       style: ButtonStyle(
@@ -333,7 +378,7 @@ Widget build(BuildContext context) {
       ),
     )
         : IconButton(
-      icon: Icon(Icons.alarm_add), // Pulsante per aggiungere reminder
+      icon: const Icon(Icons.alarm_add), // Pulsante reminder
       onPressed: _showReminderDialog,
       tooltip: 'Aggiungi Reminder',
       style: ButtonStyle(
@@ -385,13 +430,12 @@ Widget _buildCalendar() {
             shape: BoxShape.circle,
           ),
           markerDecoration: BoxDecoration(
-            color: Colors.red, // Colore del pallino
+            color: Colors.red,
             shape: BoxShape.circle,
           ),
         ),
         calendarBuilders: CalendarBuilders(
           markerBuilder: (context, date, events) {
-            // Controlla se ci sono eventi per questo giorno
             bool hasEvent = _events.any((event) {
               DateTime eventDate = DateTime.parse(event['date']);
               return eventDate.year == date.year &&
@@ -453,27 +497,25 @@ Widget _buildCalendar() {
   }
 
 
-Widget _buildReminderList() {
-  return ListView.builder(
-    itemCount: _reminders.length,
-    itemBuilder: (context, index) {
-      final reminder = _reminders[index];
-      final time = reminder['time'] as String;
-      final days = (reminder['days'] as List<dynamic>).cast<int>();
+  Widget _buildReminderList() {
+    return ListView.builder(
+      itemCount: _reminders.length,
+      itemBuilder: (context, index) {
+        final reminder = _reminders[index];
+        final time = reminder['time'] as String;
+        final days = (reminder['days'] as List<dynamic>).cast<int>();
 
-      return ListTile(
-        title: Text('Orario: $time'),
-        subtitle: Text('Ripetizione: ${days.map((day) => ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'][day]).join(', ')}'),
-        trailing: IconButton(
-          icon: Icon(Icons.delete, color: Colors.red),
-          onPressed: () {
-            _deleteReminder(index);
-          },
-        ),
-      );
-    },
-  );
-}
-
-
+        return ListTile(
+          title: Text('Orario: $time'),
+          subtitle: Text('Ripetizione: ${days.map((day) => ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'][day]).join(', ')}'),
+          trailing: IconButton(
+            icon: Icon(Icons.delete, color: Colors.red),
+            onPressed: () {
+              _deleteReminder(index);
+            },
+          ),
+        );
+      },
+    );
+  }
 }
