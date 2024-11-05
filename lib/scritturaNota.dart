@@ -77,20 +77,27 @@ class _AddNotePageState extends State<AddNotePage> {
             QuillToolbar.simple(
               configurations: QuillSimpleToolbarConfigurations(
                 controller: _controller,
+                multiRowsDisplay: false,
+                showClipboardCut: false,
+                showClipboardCopy: false,
+                showClipboardPaste: false,
                 sharedConfigurations: const QuillSharedConfigurations(
                   locale: Locale('it'),
+
                 ),
               ),
             ),
 
-            Expanded(child: QuillEditor.basic(
-              configurations: QuillEditorConfigurations(
-                  controller: _controller,
-                  scrollable: true,
-                  autoFocus: true,
-                  expands: false,
-                  placeholder: 'Scrivi la tua nota qui...',
-                  sharedConfigurations: const QuillSharedConfigurations(
+            Expanded(
+                child: QuillEditor.basic(
+                  configurations: QuillEditorConfigurations(
+                    controller: _controller,
+                    scrollable: true,
+                    autoFocus: false,
+                    expands: false,
+
+                    placeholder: 'Scrivi la tua nota qui...',
+                    sharedConfigurations: const QuillSharedConfigurations(
                       locale: Locale('it')
                   )
               ),

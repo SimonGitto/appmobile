@@ -143,7 +143,7 @@ class _CalendarioPageState extends State<CalendarioPage> {
         time.minute,
       );
 
-      // funzione notifica per il repeat
+      // funzione notifica repeat
       reminderDateTime = reminderDateTime.add(Duration(days: (day - now.weekday + 7) % 7));
 
       _scheduleNotification(
@@ -199,22 +199,22 @@ class _CalendarioPageState extends State<CalendarioPage> {
   void _showReminderDialog() {
     TimeOfDay selectedTime = TimeOfDay.now();
     List<int> selectedDays = [];
-    List<bool> selectedChips = List.generate(7, (index) => false); // Stato delle chips
+    List<bool> selectedChips = List.generate(7, (index) => false);
 
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('Aggiungi Reminder'),
+          title: const Text('Aggiungi Reminder'),
           content: StatefulBuilder(
             builder: (context, setState) {
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   ListTile(
-                    title: Text('Seleziona Orario'),
+                    title: const Text('Seleziona Orario'),
                     trailing: IconButton(
-                      icon: Icon(Icons.access_time),
+                      icon: const Icon(Icons.access_time),
                       onPressed: () async {
                         final time = await showTimePicker(
                           context: context,
@@ -231,8 +231,8 @@ class _CalendarioPageState extends State<CalendarioPage> {
                       return ChoiceChip(
                         label: Text(['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'][index]),
                         selected: selectedChips[index],
-                        selectedColor: Colors.red,
-                        backgroundColor: Colors.grey[200],
+                        selectedColor: Colors.red[400],
+                        backgroundColor: Colors.transparent,
                         onSelected: (selected) {
                           setState(() {
                             selectedChips[index] = selected;
@@ -255,7 +255,7 @@ class _CalendarioPageState extends State<CalendarioPage> {
               onPressed: () {
                 Navigator.of(context).pop();
               },
-              child: Text('Annulla'),
+              child: const Text('Annulla'),
             ),
             TextButton(
               onPressed: () {
@@ -272,13 +272,13 @@ class _CalendarioPageState extends State<CalendarioPage> {
 
   void _showEventDialog() {
     String title = '';
-    TimeOfDay selectedTime = TimeOfDay.now(); // Aggiungi orario selezionato
+    TimeOfDay selectedTime = TimeOfDay.now();
 
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-            title: Text('Aggiungi Evento'),
+            title: const Text('Aggiungi Evento'),
             content: StatefulBuilder(
               builder: (context, setState) {
                 return Column(
@@ -288,12 +288,12 @@ class _CalendarioPageState extends State<CalendarioPage> {
                       onChanged: (value) {
                         title = value;
                       },
-                      decoration: InputDecoration(hintText: "Titolo dell'evento"),
+                      decoration: const InputDecoration(hintText: "Titolo dell'evento"),
                     ),
                     ListTile(
-                      title: Text('Seleziona Orario'),
+                      title: const Text('Seleziona Orario'),
                       trailing: IconButton(
-                        icon: Icon(Icons.access_time),
+                        icon: const Icon(Icons.access_time),
                         onPressed: () async {
                           final time = await showTimePicker(
                             context: context,
@@ -314,7 +314,7 @@ class _CalendarioPageState extends State<CalendarioPage> {
             onPressed: () {
               Navigator.of(context).pop();
             },
-            child: Text('Annulla'),
+            child: const Text('Annulla'),
             ),
               TextButton(
                 onPressed: () {
@@ -323,7 +323,7 @@ class _CalendarioPageState extends State<CalendarioPage> {
                   Navigator.of(context).pop();
                   }
                 },
-        child: Text('Salva'),
+        child: const Text('Salva'),
               ),
             ],
         );
@@ -334,17 +334,21 @@ class _CalendarioPageState extends State<CalendarioPage> {
 @override
 Widget build(BuildContext context) {
   return Scaffold(
-    appBar: AppBar(
-      title: const Text('Calendario'),
-    ),
     body: Column(
       children: [
         Center(
           child: ToggleButtons(
+            color: Colors.black,
+            selectedColor: Colors.red,
+            fillColor: Colors.transparent,
+            borderWidth: 1.25,
+            borderColor: Colors.black,
+            selectedBorderColor: Colors.red,
+            borderRadius: BorderRadius.circular(15),
             isSelected: [_isCalendarVisible, !_isCalendarVisible],
             onPressed: (index) {
               setState(() {
-                _isCalendarVisible = index == 0; // 0 calendario visibile
+                _isCalendarVisible = index == 0; // 0=calendario visibile
               });
             },
             children: const [
@@ -356,6 +360,7 @@ Widget build(BuildContext context) {
                 padding: EdgeInsets.symmetric(horizontal: 16.0),
                 child: Text('Reminder'),
               ),
+
             ],
           ),
         ),
@@ -466,7 +471,7 @@ Widget _buildCalendar() {
 }
 
   Widget _buildEventsForSelectedDay() {
-    if (_selectedDay == null) return SizedBox(); // Se non è selezionato, non mostrare nulla
+    if (_selectedDay == null) return const SizedBox(); // Se non è selezionato, non mostrare nulla
 
     final eventsForSelectedDay = _events.where((event) {
       DateTime eventDate = DateTime.parse(event['date']);
@@ -477,7 +482,7 @@ Widget _buildCalendar() {
 
     return ListView.builder(
       shrinkWrap: true,
-      physics: NeverScrollableScrollPhysics(), // Non permettere lo scorrimento
+      physics: const NeverScrollableScrollPhysics(), // Non permettere lo scorrimento
       itemCount: eventsForSelectedDay.length,
       itemBuilder: (context, index) {
         final event = eventsForSelectedDay[index];
@@ -485,7 +490,7 @@ Widget _buildCalendar() {
           title: Text(event['title']),
           subtitle: Text('Orario: ${event['time']}'),
           trailing: IconButton(
-            icon: Icon(Icons.delete, color: Colors.red),
+            icon: const Icon(Icons.delete, color: Colors.red),
             onPressed: () {
               int globalIndex = _events.indexOf(event);
               _deleteEvent(globalIndex);
@@ -509,7 +514,7 @@ Widget _buildCalendar() {
           title: Text('Orario: $time'),
           subtitle: Text('Ripetizione: ${days.map((day) => ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'][day]).join(', ')}'),
           trailing: IconButton(
-            icon: Icon(Icons.delete, color: Colors.red),
+            icon: const Icon(Icons.delete, color: Colors.red),
             onPressed: () {
               _deleteReminder(index);
             },

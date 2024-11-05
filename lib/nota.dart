@@ -11,11 +11,15 @@ class Note extends HiveObject {
   @HiveField(2)
   DateTime creationDate;
 
+  @HiveField(3)
+  DateTime? lastModifiedDate;
+
   Note({
     required this.title,
     required this.content,
     required this.creationDate,
-  });
+    DateTime? lastModifiedDate,
+  }): lastModifiedDate = lastModifiedDate ?? creationDate;
 }
 
 class NoteAdapter extends TypeAdapter<Note> {
@@ -28,6 +32,7 @@ class NoteAdapter extends TypeAdapter<Note> {
       title: reader.readString(),
       content: reader.readString(),
       creationDate: DateTime.parse(reader.readString()),
+      lastModifiedDate: DateTime.parse(reader.readString()),
     );
   }
 
@@ -36,6 +41,7 @@ class NoteAdapter extends TypeAdapter<Note> {
     writer.writeString(obj.title);
     writer.writeString(obj.content);
     writer.writeString(obj.creationDate.toIso8601String());
+    writer.writeString(obj.lastModifiedDate!.toIso8601String());
   }
 }
 

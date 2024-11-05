@@ -4,7 +4,7 @@ class TopLine extends StatelessWidget {
   final Widget child;
 
 
-  TopLine({
+  const TopLine({super.key,
     required this.child,
   });
 
@@ -13,8 +13,8 @@ class TopLine extends StatelessWidget {
     return Column(
       children: [
         Container(
-          height: 1.5,
-          color: Colors.black12,
+          height: 0.5,
+          color: Colors.transparent,
         ),
         Expanded(
           child: child,

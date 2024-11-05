@@ -9,7 +9,6 @@ import 'nota.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:flutter/material.dart';
 
 
 
@@ -36,7 +35,7 @@ class _NotesPageState extends State<NotesPage> {
       notesBox = await Hive.openBox<Note>('notesBox');
       print("aperto bene");
     } catch (e) {
-      print("Errore : $e");
+      print("Errore diocan : $e");
     } finally {
       setState(() {
         isLoading = false;
@@ -72,7 +71,7 @@ class _NotesPageState extends State<NotesPage> {
               await notesBox.add(note);
               setState(() {});
             },
-            note: Note(title: title, content: '', creationDate: DateTime.now()),
+            note: Note(title: title, content: '', creationDate: DateTime.now(), lastModifiedDate: DateTime.now()),
           ),
         ),
       );
@@ -86,6 +85,7 @@ class _NotesPageState extends State<NotesPage> {
       MaterialPageRoute(
         builder: (context) => AddNotePage(
           onSave: (updatedNote) {
+            updatedNote.lastModifiedDate = DateTime.now();
             notesBox.putAt(index, updatedNote);
             setState(() {});
           },
@@ -102,55 +102,76 @@ class _NotesPageState extends State<NotesPage> {
 
 
 
-    void _showNoteOptions(BuildContext context, Note note, int index) {
-      showModalBottomSheet(
-        context: context,
-        builder: (BuildContext context) {
-          return Container(
-            child: Wrap(
-              children: <Widget>[
-                ListTile(
-                  leading: Icon(Icons.delete),
-                  title: Text('Elimina'),
-                  onTap: () {
-                    Navigator.of(context).pop(); // Chiude il menù
-                    _deleteNote(index); // Elimina la nota
-                  },
-                ),
-                ListTile(
-                  leading: Icon(Icons.share),
-                  title: Text('Condividi (tieni premuto per il QR)'),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    final plainText = Document.fromJson(jsonDecode(note.content)).toPlainText();
-                    Clipboard.setData(ClipboardData(text: plainText)); // Copia il testo negli appunti
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          duration: Duration(seconds:  3),
-                          content: Text('Nota copiata negli appunti!')
-                      ),
-                    );
+  void _showNoteOptions(BuildContext context, Note note, int index) {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return Container(
+          child: Wrap(
+            children: <Widget>[
+
+              ListTile(
+                leading: Icon(Icons.delete_rounded),
+                title: Text('Elimina'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _deleteNote(index);
                 },
+              ),
 
-                  onLongPress: () {
-                    _showQRCode(context, note.content); // Passa il contenuto della nota alla funzione
-                  },  // Genera il codice QR per condividere
+              ListTile(
+                leading: Icon(Icons.qr_code_rounded),
+                title: Text('Condividi con QR'),
+                onTap: () {
+                  _showQRCode(context, note.content);
+                },
+              ),
 
-                ),
-                ListTile(
-                  leading: Icon(Icons.info),
-                  title: Text('Info'),
-                  onTap: () {
-                    Navigator.of(context).pop(); // Chiude il menù
-                    _showNoteInfo(context, note); // Mostra info
-                  },
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    }
+              ListTile(
+                leading: Icon(Icons.copy_rounded),
+                title: Text('Copia testo'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  final plainText = Document.fromJson(jsonDecode(note.content)).toPlainText();
+                  if (plainText.length > 100000) {
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: Text("Testo troppo lungo"),
+                          content: Text("La nota supera i 100.000 caratteri e non può essere copiata negli appunti."),
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                              child: Text("OK"),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  } else {
+                    Clipboard.setData(ClipboardData(text: plainText));
+                  }
+                },
+              ),
+
+              ListTile(
+                leading: Icon(Icons.info_rounded),
+                title: Text('Info'),
+                onTap: () {
+                  Navigator.of(context).pop(); // Chiude il menù
+                  _showNoteInfo(context, note); // Mostra info
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
 
     void _showNoteInfo(BuildContext context, Note note) {
       final content = note.content;
@@ -164,7 +185,8 @@ class _NotesPageState extends State<NotesPage> {
             title: Text('Info Nota'),
             content: Text(
                 'Titolo: ${note.title}\n'
-                'Data creazione: ${note.creationDate.toLocal().toString().split(' ')[0]}\n\n'
+                'Data creazione: ${note.creationDate.toLocal().toString().split(' ')[0]}\n'
+                'Ultima modifica: ${note.lastModifiedDate?.toLocal().toString().split(' ')[0]}\n\n'
                     'Numero di parole: $wordCount\n'
                     'Numero di caratteri: $characterCount',
             ),
@@ -182,6 +204,27 @@ class _NotesPageState extends State<NotesPage> {
     }
 
   void _showQRCode(BuildContext context, String noteContent) {
+    final contentLength = noteContent.characters.length;
+
+    if (contentLength > 2500) {
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Testo troppo lungo!'),
+            content: const Text('La nota supera il limite massimo di caratteri per generare un codice QR.'),
+            actions: <Widget>[
+              TextButton(
+                child: const Text('Chiudi'),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          );
+        },
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -189,39 +232,45 @@ class _NotesPageState extends State<NotesPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
-          child: SingleChildScrollView(  // Aggiungi lo scroll
-            child: Container(
-              padding: EdgeInsets.all(20),
-              width: 250,  // Larghezza del contenitore
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Condividi Nota con QR',
-                    style: TextStyle(fontSize: 18),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            width: MediaQuery.of(context).size.width, // Larghezza quasi a schermo intero
+            height: MediaQuery.of(context).size.height * 0.6, // Altezza dello schermo
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Condividi Nota con QR',
+                  style: TextStyle(fontSize: 24), // Aumenta la dimensione del titolo
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                if (contentLength > 970)
+                  const Text(
+                    'Attenzione: Questo QR potrebbe non essere leggibile a causa della lunghezza del testo.',
+                    style: TextStyle(color: Colors.red),
                     textAlign: TextAlign.center,
                   ),
-                  SizedBox(height: 20),
-                  QrImageView(
-                    data: noteContent,  // Passa il contenuto della nota come dati del QR code
-                    version: QrVersions.auto,
-                    size: 150.0,  // Dimensione del QR code
-                  ),
-                  SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    child: Text('Chiudi'),
-                  ),
-                ],
-              ),
+                if (contentLength > 1000) const SizedBox(height: 10),
+                QrImageView(
+                  data: noteContent,
+                  version: QrVersions.auto,
+                  size: 300.0, // Dimensione del QR code
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Chiudi'),
+                ),
+              ],
             ),
           ),
         );
       },
     );
   }
+
+
 
 
 
@@ -240,9 +289,6 @@ class _NotesPageState extends State<NotesPage> {
       }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Le mie Note'),
-      ),
       body: ValueListenableBuilder(
         valueListenable: notesBox.listenable(),
         builder: (context, Box<Note> box, _) {
@@ -258,7 +304,7 @@ class _NotesPageState extends State<NotesPage> {
                 return ListTile(
                   title: Text(note.title),
                   subtitle: Text(
-                      'Creato il: ${note.creationDate.toLocal().toString().split(' ')[0]}'
+                    'Ultima modifica: ${note.lastModifiedDate?.toLocal().toString().split(' ')[0]}',
                   ),
                   onTap: () => _editNote(note, index),
                   onLongPress: () =>_showNoteOptions(context, note, index),
