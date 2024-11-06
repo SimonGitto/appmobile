@@ -1,14 +1,18 @@
 import 'dart:convert';
-
 import 'package:appmobile/scritturaNota.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_quill/flutter_quill.dart';
+import 'package:flutter_sound/public/flutter_sound_player.dart';
+import 'package:flutter_sound/public/flutter_sound_recorder.dart';
+import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'aggiuntaTitoloNota.dart';
 import 'nota.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'dart:async';
 
 
 
@@ -20,62 +24,348 @@ class NotesPage extends StatefulWidget {
 class _NotesPageState extends State<NotesPage> {
   late Box<Note> notesBox;
   bool isLoading = true;
-
+  bool showTextNotes = true;
+  FlutterSoundRecorder? _audioRecorder;
+  FlutterSoundPlayer? _audioPlayer;
+  String? audioFilePath;
+  Duration _recordingDuration =Duration.zero;
+  Timer? _recordingTimer;
+  Timer? _playingTimer;
+  bool _isRecording = false;
+  bool _isPlaying = false;
+  Duration _playingDuration = Duration.zero;
 
   @override
   void initState() {
     super.initState();
     _openBox();
+    _audioRecorder = FlutterSoundRecorder();
+    _audioPlayer = FlutterSoundPlayer();
+    _initRecorder();
   }
+
 
   Future<void> _openBox() async {
     try {
       final appDocumentsDirectory = await getApplicationDocumentsDirectory();
       Hive.init(appDocumentsDirectory.path);
       notesBox = await Hive.openBox<Note>('notesBox');
-      print("aperto bene");
+      setState(() {
+        isLoading = false;
+      });
     } catch (e) {
-      print("Errore diocan : $e");
-    } finally {
+      print("Errore nell'aprire il box: $e");
       setState(() {
         isLoading = false;
       });
     }
   }
 
+
+  Future<void> checkAndRequestPermission() async {
+    if (await Permission.microphone.isDenied) {
+      await Permission.microphone.request();
+    }
+  }
+
+
+
   @override
   void dispose() {
     if (Hive.isBoxOpen('notesBox')) {
       Hive.close();
     }
+    _audioRecorder!.closeRecorder();
     super.dispose();
   }
 
 
-  void _navigateToAddNoteTitlePage(BuildContext context) async {
-    final title = await Navigator.of(context).push<String>(
-      MaterialPageRoute(
-        builder: (context) => AddNoteTitlePage(
-          onTitleSaved: (title) {
-            Navigator.of(context).pop(title);
+  Future<void> _initRecorder() async {
+    await _audioRecorder!.openRecorder();
+    await Permission.microphone.request();
+  }
+
+
+
+  void _showRecordingDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+
+            return AlertDialog(
+              title: const Text(
+                  "Registrazione in corso...",
+                style: TextStyle(
+                  color: Colors.black
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    _stopRecording();
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text("Scarta"),
+                ),
+
+                TextButton(
+                  onPressed: () {
+                    _stopRecording();
+                    _confirmSaveRecording();
+                  },
+                  child: const Text("Salva"),
+                ),
+
+              ],
+            );
           },
+        );
+
+  }
+
+
+
+
+
+  void _startRecording() async {
+    if (_isRecording) return;
+
+    await checkAndRequestPermission();
+
+    final dir = await getApplicationDocumentsDirectory();
+    final path = '${dir.path}/audio_${DateTime.now().millisecondsSinceEpoch}.aac';
+
+    await _audioRecorder!.startRecorder(toFile: path);
+
+    setState(() {
+      audioFilePath = path;
+      _isRecording = true;
+      _recordingDuration = Duration.zero;
+    });
+
+    _showRecordingDialog();
+  }
+
+
+
+
+  Future<void> _stopRecording() async {
+    if (!_isRecording) return;
+
+    await _audioRecorder!.stopRecorder();
+
+    setState(() {
+      _isRecording = false;
+      _recordingDuration = Duration.zero;
+    });
+  }
+
+
+
+
+  Future<void> _confirmSaveRecording() async {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        final TextEditingController titleController = TextEditingController();
+
+        return AlertDialog(
+          title: const Text(
+            "Salva Registrazione",
+            style: TextStyle(
+              color: Colors.black
+            ),
+          ),
+          content: TextField(
+            controller: titleController,
+            decoration: const InputDecoration(
+                labelText: "Titolo della nota",
+                labelStyle: TextStyle(
+                  color: Colors.black
+                )
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).pop();
+              },
+              child: const Text("Annulla"),
+            ),
+
+            TextButton(
+              onPressed: () {
+                if (titleController.text.isNotEmpty) {
+                  _addAudioNote(titleController.text);
+                  Navigator.of(context).pop();
+                  Navigator.of(context).pop();
+                }
+                String x = _formatDate(DateTime.now());
+                _addAudioNote(x);
+                Navigator.of(context).pop();
+                Navigator.of(context).pop();
+
+              },
+              child: const Text("Salva"),
+            ),
+
+          ],
+        );
+      },
+    );
+  }
+
+
+
+  void _addAudioNote(String title) {
+    if (audioFilePath != null) {
+      final note = Note(
+        title: title,
+        content: '',
+        creationDate: DateTime.now(),
+        lastModifiedDate: DateTime.now(),
+        audio: audioFilePath!,
+      );
+
+      notesBox.add(note);
+
+      setState(() {
+        audioFilePath = null;
+      });
+    }
+  }
+
+
+
+
+  void _showPlaybackDialog(String? filePath) {
+    _playRecording(filePath!);
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Riproduzione in corso...",
+              style:TextStyle(
+                  color: Colors.black
+              )
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                _stopPlaying();
+                Navigator.of(context).pop();
+              },
+              child: Text("Chiudi"),
+
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+
+
+  Future<void> _playRecording(String filePath) async {
+    try {
+      await _audioPlayer!.openPlayer();
+      await _audioPlayer!.startPlayer(
+        fromURI: filePath,
+        whenFinished: () {
+          setState(() {
+            _isPlaying = false;
+          });
+        },
+      );
+
+      setState(() {
+        _isPlaying = true;
+      });
+    } catch (e) {
+      print("Errore durante la riproduzione: $e");
+    }
+  }
+
+
+
+
+  void _stopPlaying() async {
+    if (_isPlaying) {
+      await _audioPlayer?.stopPlayer();
+      setState(() {
+        _isPlaying = false;
+        _recordingDuration = Duration.zero;
+      });
+    }
+  }
+
+
+
+  void _showAudioOptions(BuildContext context, Note note, int index) {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return Padding(
+          padding: const EdgeInsets.all(16.0), // Aggiungi padding per migliorare l'aspetto
+          child: Column(
+            mainAxisSize: MainAxisSize.min, // Assicura che il contenuto si adatti solo alla dimensione necessaria
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(
+                    Icons.delete_rounded,
+                    color: Colors.red,
+                ),
+                title: const Text(
+                    'Elimina',
+                    style: TextStyle(
+                      color: Colors.red
+                    ),
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _confirmDelete(context, note, index);
+                },
+              ),
+              // Puoi aggiungere altre opzioni qui in futuro
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+
+
+  //note scritte--------------------------------------------------------------------------------------
+
+  String _formatDate(DateTime date) {
+    return DateFormat('yyyy-MM-dd_HH.mm.ss').format(date);
+  }
+
+
+  void _navigateToAddNoteTitlePage(BuildContext context) async {
+    final now = DateTime.now();
+    final defaultTitle = _formatDate(now);
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => AddNotePage(
+          onSave: (note) async {
+            await notesBox.add(note);
+            setState(() {});
+          },
+          note: Note(
+            title: defaultTitle,
+            content: '',
+            creationDate: now,
+            lastModifiedDate: now,
+            audio: '',
+          ),
         ),
       ),
     );
-
-    if (title != null && title.isNotEmpty) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => AddNotePage(
-            onSave: (note) async {
-              await notesBox.add(note);
-              setState(() {});
-            },
-            note: Note(title: title, content: '', creationDate: DateTime.now(), lastModifiedDate: DateTime.now()),
-          ),
-        ),
-      );
-    }
   }
 
 
@@ -95,6 +385,50 @@ class _NotesPageState extends State<NotesPage> {
     );
   }
 
+
+
+  void _confirmDelete(BuildContext context, Note note, int index) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Conferma Eliminazione'),
+          content: RichText(
+            text: TextSpan(
+              style: DefaultTextStyle.of(context).style,
+              children: [
+                const TextSpan(text: 'Sei sicuro di voler eliminare la nota '),
+                TextSpan(
+                  text: note.title,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const TextSpan(text: '?'),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Annulla'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Elimina'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _deleteNote(index);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+
+
+
   void _deleteNote(int index) {
     notesBox.deleteAt(index);
     setState(() {});
@@ -109,27 +443,32 @@ class _NotesPageState extends State<NotesPage> {
         return Container(
           child: Wrap(
             children: <Widget>[
-
               ListTile(
-                leading: Icon(Icons.delete_rounded),
-                title: Text('Elimina'),
+                leading: const Icon(
+                  Icons.delete_rounded,
+                  color: Colors.red,
+                ),
+                title: const Text(
+                    'Elimina',
+                  style: TextStyle(
+                      color: Colors.red
+                  ),
+                ),
                 onTap: () {
                   Navigator.of(context).pop();
-                  _deleteNote(index);
+                  _confirmDelete(context, note, index);
                 },
               ),
-
               ListTile(
-                leading: Icon(Icons.qr_code_rounded),
-                title: Text('Condividi con QR'),
+                leading: const Icon(Icons.qr_code_rounded),
+                title: const Text('Condividi con QR'),
                 onTap: () {
-                  _showQRCode(context, note.content);
+                  _showQRCode(context, note);
                 },
               ),
-
               ListTile(
-                leading: Icon(Icons.copy_rounded),
-                title: Text('Copia testo'),
+                leading: const Icon(Icons.copy_rounded),
+                title: const Text('Copia testo'),
                 onTap: () {
                   Navigator.of(context).pop();
                   final plainText = Document.fromJson(jsonDecode(note.content)).toPlainText();
@@ -138,14 +477,26 @@ class _NotesPageState extends State<NotesPage> {
                       context: context,
                       builder: (BuildContext context) {
                         return AlertDialog(
-                          title: Text("Testo troppo lungo"),
-                          content: Text("La nota supera i 100.000 caratteri e non può essere copiata negli appunti."),
+                          title: const Text("Testo troppo lungo!"),
+                          content: RichText(
+                            text: TextSpan(
+                              style: DefaultTextStyle.of(context).style,
+                              children: [
+                                const TextSpan(text: "La nota "),
+                                TextSpan(
+                                  text: note.title,
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const TextSpan(text: " supera i 100.000 caratteri e non può essere copiata negli appunti."),
+                              ],
+                            ),
+                          ),
                           actions: [
                             TextButton(
                               onPressed: () {
                                 Navigator.of(context).pop();
                               },
-                              child: Text("OK"),
+                              child: const Text("OK"),
                             ),
                           ],
                         );
@@ -156,13 +507,12 @@ class _NotesPageState extends State<NotesPage> {
                   }
                 },
               ),
-
               ListTile(
-                leading: Icon(Icons.info_rounded),
-                title: Text('Info'),
+                leading: const Icon(Icons.info_rounded),
+                title: const Text('Info'),
                 onTap: () {
-                  Navigator.of(context).pop(); // Chiude il menù
-                  _showNoteInfo(context, note); // Mostra info
+                  Navigator.of(context).pop();
+                  _showNoteInfo(context, note);
                 },
               ),
             ],
@@ -173,37 +523,48 @@ class _NotesPageState extends State<NotesPage> {
   }
 
 
-    void _showNoteInfo(BuildContext context, Note note) {
-      final content = note.content;
-      final wordCount = content.trim().isEmpty ? 0 : content.trim().split(RegExp(r'\s+')).length;
-      final characterCount = content.length;
 
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: Text('Info Nota'),
-            content: Text(
-                'Titolo: ${note.title}\n'
-                'Data creazione: ${note.creationDate.toLocal().toString().split(' ')[0]}\n'
-                'Ultima modifica: ${note.lastModifiedDate?.toLocal().toString().split(' ')[0]}\n\n'
-                    'Numero di parole: $wordCount\n'
-                    'Numero di caratteri: $characterCount',
+  void _showNoteInfo(BuildContext context, Note note) {
+    final content = note.content;
+    final wordCount = content.trim().isEmpty ? 0 : content.trim().split(RegExp(r'\s+')).length;
+    final characterCount = content.length;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Info Nota'),
+          content: RichText(
+            text: TextSpan(
+              style: DefaultTextStyle.of(context).style,
+              children: <TextSpan>[
+                const TextSpan(text: 'Titolo: ', style: TextStyle(fontWeight: FontWeight.normal)),
+                TextSpan(text: note.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                TextSpan(text: '\nData creazione: ${_formatDate(note.creationDate)}\n'),
+                TextSpan(text: 'Ultima modifica: ${_formatDate(note.lastModifiedDate ?? DateTime.now())}\n'),
+                TextSpan(text: 'Numero di parole: $wordCount\n'),
+                TextSpan(text: 'Numero di caratteri: $characterCount'),
+              ],
             ),
-            actions: <Widget>[
-              TextButton(
-                child: Text('Chiudi'),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          );
-        },
-      );
-    }
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Chiudi'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
 
-  void _showQRCode(BuildContext context, String noteContent) {
+
+
+
+  void _showQRCode(BuildContext context, Note note) {
+    final noteContent = note.content;
     final contentLength = noteContent.characters.length;
 
     if (contentLength > 2500) {
@@ -212,7 +573,16 @@ class _NotesPageState extends State<NotesPage> {
         builder: (BuildContext context) {
           return AlertDialog(
             title: const Text('Testo troppo lungo!'),
-            content: const Text('La nota supera il limite massimo di caratteri per generare un codice QR.'),
+            content: RichText(
+              text: TextSpan(
+                style: const TextStyle(color: Colors.black), // Colore del testo
+                children: [
+                  TextSpan(text: 'La nota ', style: const TextStyle(fontWeight: FontWeight.normal)), // Testo normale
+                  TextSpan(text: note.title, style: const TextStyle(fontWeight: FontWeight.bold)), // Titolo in grassetto
+                  const TextSpan(text: ' supera il limite massimo di caratteri per generare un codice QR.'),
+                ],
+              ),
+            ),
             actions: <Widget>[
               TextButton(
                 child: const Text('Chiudi'),
@@ -234,14 +604,14 @@ class _NotesPageState extends State<NotesPage> {
           ),
           child: Container(
             padding: const EdgeInsets.all(20),
-            width: MediaQuery.of(context).size.width, // Larghezza quasi a schermo intero
-            height: MediaQuery.of(context).size.height * 0.6, // Altezza dello schermo
+            width: MediaQuery.of(context).size.width,
+            height: MediaQuery.of(context).size.height * 0.6,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Condividi Nota con QR',
-                  style: TextStyle(fontSize: 24), // Aumenta la dimensione del titolo
+                Text(
+                  note.title,
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),
@@ -252,10 +622,11 @@ class _NotesPageState extends State<NotesPage> {
                     textAlign: TextAlign.center,
                   ),
                 if (contentLength > 1000) const SizedBox(height: 10),
+
                 QrImageView(
-                  data: noteContent,
+                  data: extractTextFromJson(noteContent),
                   version: QrVersions.auto,
-                  size: 300.0, // Dimensione del QR code
+                  size: 300.0,
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton(
@@ -272,83 +643,134 @@ class _NotesPageState extends State<NotesPage> {
 
 
 
+  String extractTextFromJson(String jsonText) {
+    try {
+      var decoded = json.decode(jsonText);
+
+      if (decoded is List && decoded.isNotEmpty) {
+        var firstElement = decoded[0];
+        if (firstElement is Map && firstElement.containsKey('insert')) {
+          return firstElement['insert']?.toString() ?? '';
+        }
+      }
+
+      return '';
+    } catch (e) {
+      print("Errore nella decodifica JSON: $e");
+      return '';
+    }
+  }
+
 
 
 
   @override
-    Widget build(BuildContext context) {
-      if (!Hive.isBoxOpen('notesBox')) {
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('Le mie Note'),
-          ),
-          body: const Center(
-            child: CircularProgressIndicator(),
-          ),
-        );
-      }
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     return Scaffold(
-      body: ValueListenableBuilder(
-        valueListenable: notesBox.listenable(),
-        builder: (context, Box<Note> box, _) {
-          if (box.values.isEmpty) {
-            return const Center(
-              child: Text('Nessuna nota salvata.'),
-            );             } else {
-            final notes = box.values.toList();
-            return ListView.builder(
-              itemCount: notes.length,
-              itemBuilder: (context, index) {
-                final note = notes[index];
-                return ListTile(
-                  title: Text(note.title),
-                  subtitle: Text(
-                    'Ultima modifica: ${note.lastModifiedDate?.toLocal().toString().split(' ')[0]}',
-                  ),
-                  onTap: () => _editNote(note, index),
-                  onLongPress: () =>_showNoteOptions(context, note, index),
+
+      body: Column(
+        children: [
+          const SizedBox(height: 10.0), // Spazio verticale
+          Center(
+            child: ToggleButtons(
+              color: Colors.black,
+              selectedColor: Colors.red,
+              fillColor: Colors.transparent,
+              borderWidth: 1.25,
+              borderColor: Colors.black,
+              selectedBorderColor: Colors.red,
+              borderRadius: BorderRadius.circular(15),
+              isSelected: [showTextNotes, !showTextNotes],
+              onPressed: (index) {
+                setState(() {
+                  showTextNotes = index == 0;
+                });
+              },
+              children: const [
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Text(' Note '),
+                ),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Text('Audio'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16.0), // Spazio tra il bottone di switch e il contenuto
+          Expanded(
+            child: ValueListenableBuilder(
+              valueListenable: notesBox.listenable(),
+              builder: (context, Box<Note> box, _) {
+                final notes = box.values.toList();
+                final filteredNotes = showTextNotes
+                    ? notes.where((note) => note.audio?.isEmpty ?? true).toList()
+                    : notes.where((note) => note.audio?.isNotEmpty ?? false).toList();
+
+                if (filteredNotes.isEmpty) {
+                  return Center(
+                    child: Text(
+                      showTextNotes ? 'Nessuna nota testuale salvata.' : 'Nessuna nota vocale salvata.',
+                      style: const TextStyle(fontSize: 24),
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  itemCount: filteredNotes.length,
+                  itemBuilder: (context, index) {
+                    final note = filteredNotes[index];
+                    return ListTile(
+                      title: Text(
+                        note.title,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: showTextNotes
+                      ? Text('Ultima modifica: ${_formatDate(note.lastModifiedDate ?? DateTime.now())}')
+                      : Text('Data di creazione: ${_formatDate(note.lastModifiedDate ?? DateTime.now())}',
+                      ),
+                      onTap: showTextNotes
+                          ? () => _editNote(note, index)
+                          : () => _showPlaybackDialog(note.audio),
+                      onLongPress: showTextNotes
+                          ? () => _showNoteOptions(context, note, index)
+                          : () => _showAudioOptions(context, note, index),
+
+                    );
+                  },
                 );
               },
-            );
-          }
-        },
+            ),
+          ),
+        ],
       ),
-      floatingActionButton: IconButton(
-        icon:  const Icon(Icons.add),
+      floatingActionButton: showTextNotes
+          ? IconButton(
+        onPressed: () => _navigateToAddNoteTitlePage(context),
+        icon: const Icon(Icons.add),
         style: ButtonStyle(
-
           foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
           backgroundColor: WidgetStateProperty.all<Color>(Colors.red),
           shadowColor: WidgetStateProperty.all<Color>(Colors.red),
         ),
+      )
 
-      onPressed: () => _navigateToAddNoteTitlePage(context),
+          : IconButton(
+        onPressed: _startRecording,
+        icon: const Icon(Icons.mic),
+        style: ButtonStyle(
+          foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+          backgroundColor: WidgetStateProperty.all<Color>(Colors.red),
+          shadowColor: WidgetStateProperty.all<Color>(Colors.red),
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
+
 }
-
-
-
-
-
-
-
-/*
-floatingActionButton: IconButton(
-          icon: const Icon(Icons.add),
-          style: ButtonStyle(
-            foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-            backgroundColor: WidgetStateProperty.all<Color>(Colors.red),
-            shadowColor: WidgetStateProperty.all<Color>(Colors.red),
-
-          ),
-          onPressed: () => _navigateToAddNoteTitlePage(context),
-        ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
- */
-
-
-

@@ -44,6 +44,7 @@ class NoteApp extends StatelessWidget {
         ),
 
         primarySwatch: Colors.red,
+
         timePickerTheme: TimePickerThemeData(
           dialBackgroundColor: Colors.grey[250],
           dialHandColor: Colors.red,
@@ -59,7 +60,7 @@ class NoteApp extends StatelessWidget {
            selectionHandleColor: Colors.transparent,
          ),
 
-          inputDecorationTheme: const InputDecorationTheme(
+         inputDecorationTheme: const InputDecorationTheme(
             focusedBorder: OutlineInputBorder(
               borderSide: BorderSide(color: Colors.transparent),
             ),
@@ -116,7 +117,7 @@ class _HomePageState extends State<HomePage> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
-            label: 'Impostazioni',
+            label: 'Altro',
           ),
         ],
         currentIndex: _selectedIndex,
