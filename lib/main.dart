@@ -30,34 +30,34 @@ class NoteApp extends StatelessWidget {
 
       title: 'Note App',
       theme: ThemeData(
-        dialogTheme: const DialogTheme(
-          titleTextStyle: TextStyle(color: Colors.red, fontSize: 20),
-          contentTextStyle: TextStyle(color: Colors.black, fontSize: 16),
-        ),
-
-        textButtonTheme: TextButtonThemeData(
-          style: ButtonStyle(
-            overlayColor: MaterialStateProperty.all<Color>(Colors.red.shade100),
-            foregroundColor: MaterialStateProperty.all<Color>(Colors.red),
-            backgroundColor: MaterialStateProperty.all<Color>(Colors.transparent),
+          dialogTheme: const DialogTheme(
+            titleTextStyle: TextStyle(color: Colors.red, fontSize: 20),
+            contentTextStyle: TextStyle(color: Colors.black, fontSize: 16),
           ),
-        ),
 
-        primarySwatch: Colors.red,
-        timePickerTheme: TimePickerThemeData(
-          dialBackgroundColor: Colors.grey[250],
-          dialHandColor: Colors.red,
-          hourMinuteTextColor: MaterialStateColor.resolveWith((states) =>
+          textButtonTheme: TextButtonThemeData(
+            style: ButtonStyle(
+              overlayColor: MaterialStateProperty.all<Color>(Colors.red.shade100),
+              foregroundColor: MaterialStateProperty.all<Color>(Colors.red),
+              backgroundColor: MaterialStateProperty.all<Color>(Colors.transparent),
+            ),
+          ),
+
+          primarySwatch: Colors.red,
+          timePickerTheme: TimePickerThemeData(
+            dialBackgroundColor: Colors.grey[250],
+            dialHandColor: Colors.red,
+            hourMinuteTextColor: MaterialStateColor.resolveWith((states) =>
             states.contains(MaterialState.selected) ? Colors.red : Colors.black),
-          hourMinuteColor: MaterialStateColor.resolveWith((states) =>
-          states.contains(MaterialState.selected) ? Colors.transparent : Colors.transparent),
-        ),
+            hourMinuteColor: MaterialStateColor.resolveWith((states) =>
+            states.contains(MaterialState.selected) ? Colors.transparent : Colors.transparent),
+          ),
 
-         textSelectionTheme: TextSelectionThemeData(
-           cursorColor: Colors.black,
-           selectionColor: Colors.red.withOpacity(0.3),
-           selectionHandleColor: Colors.transparent,
-         ),
+          textSelectionTheme: TextSelectionThemeData(
+            cursorColor: Colors.black,
+            selectionColor: Colors.red.withOpacity(0.3),
+            selectionHandleColor: Colors.transparent,
+          ),
 
           inputDecorationTheme: const InputDecorationTheme(
             focusedBorder: OutlineInputBorder(
@@ -126,6 +126,3 @@ class _HomePageState extends State<HomePage> {
     );
   }
 }
-
-
-

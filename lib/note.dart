@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:appmobile/scritturaNota.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_quill/flutter_quill.dart';
@@ -9,8 +8,7 @@ import 'nota.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-
-
+import 'package:intl/intl.dart';
 
 class NotesPage extends StatefulWidget {
   @override
@@ -20,7 +18,6 @@ class NotesPage extends StatefulWidget {
 class _NotesPageState extends State<NotesPage> {
   late Box<Note> notesBox;
   bool isLoading = true;
-
 
   @override
   void initState() {
@@ -35,7 +32,7 @@ class _NotesPageState extends State<NotesPage> {
       notesBox = await Hive.openBox<Note>('notesBox');
       print("aperto bene");
     } catch (e) {
-      print("Errore diocan : $e");
+      print("Errore: $e");
     } finally {
       setState(() {
         isLoading = false;
@@ -51,34 +48,31 @@ class _NotesPageState extends State<NotesPage> {
     super.dispose();
   }
 
+  String _formatDate(DateTime date) {
+    return DateFormat('yyyy-MM-dd_HH.mm.ss').format(date);
+  }
 
   void _navigateToAddNoteTitlePage(BuildContext context) async {
-    final title = await Navigator.of(context).push<String>(
+    final now = DateTime.now();
+    final defaultTitle = _formatDate(now);
+
+    Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => AddNoteTitlePage(
-          onTitleSaved: (title) {
-            Navigator.of(context).pop(title);
+        builder: (context) => AddNotePage(
+          onSave: (note) async {
+            await notesBox.add(note);
+            setState(() {});
           },
+          note: Note(
+            title: defaultTitle,
+            content: '',
+            creationDate: now,
+            lastModifiedDate: now,
+          ),
         ),
       ),
     );
-
-    if (title != null && title.isNotEmpty) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => AddNotePage(
-            onSave: (note) async {
-              await notesBox.add(note);
-              setState(() {});
-            },
-            note: Note(title: title, content: '', creationDate: DateTime.now(), lastModifiedDate: DateTime.now()),
-          ),
-        ),
-      );
-    }
   }
-
-
 
   void _editNote(Note note, int index) async {
     final result = await Navigator.of(context).push(
@@ -95,12 +89,49 @@ class _NotesPageState extends State<NotesPage> {
     );
   }
 
+  void _confirmDelete(BuildContext context, Note note, int index) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Conferma Eliminazione'),
+          content: RichText(
+            text: TextSpan(
+              style: DefaultTextStyle.of(context).style,
+              children: [
+                const TextSpan(text: 'Sei sicuro di voler eliminare la nota '),
+                TextSpan(
+                  text: note.title,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const TextSpan(text: '?'),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Annulla'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Elimina'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _deleteNote(index);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _deleteNote(int index) {
     notesBox.deleteAt(index);
     setState(() {});
   }
-
-
 
   void _showNoteOptions(BuildContext context, Note note, int index) {
     showModalBottomSheet(
@@ -109,27 +140,24 @@ class _NotesPageState extends State<NotesPage> {
         return Container(
           child: Wrap(
             children: <Widget>[
-
               ListTile(
-                leading: Icon(Icons.delete_rounded),
-                title: Text('Elimina'),
+                leading: const Icon(Icons.delete_rounded),
+                title: const Text('Elimina'),
                 onTap: () {
                   Navigator.of(context).pop();
-                  _deleteNote(index);
+                  _confirmDelete(context, note, index);
                 },
               ),
-
               ListTile(
-                leading: Icon(Icons.qr_code_rounded),
-                title: Text('Condividi con QR'),
+                leading: const Icon(Icons.qr_code_rounded),
+                title: const Text('Condividi con QR'),
                 onTap: () {
-                  _showQRCode(context, note.content);
+                  _showQRCode(context, note);
                 },
               ),
-
               ListTile(
-                leading: Icon(Icons.copy_rounded),
-                title: Text('Copia testo'),
+                leading: const Icon(Icons.copy_rounded),
+                title: const Text('Copia testo'),
                 onTap: () {
                   Navigator.of(context).pop();
                   final plainText = Document.fromJson(jsonDecode(note.content)).toPlainText();
@@ -138,14 +166,26 @@ class _NotesPageState extends State<NotesPage> {
                       context: context,
                       builder: (BuildContext context) {
                         return AlertDialog(
-                          title: Text("Testo troppo lungo"),
-                          content: Text("La nota supera i 100.000 caratteri e non può essere copiata negli appunti."),
+                          title: const Text("Testo troppo lungo!"),
+                          content: RichText(
+                            text: TextSpan(
+                              style: DefaultTextStyle.of(context).style,
+                              children: [
+                                const TextSpan(text: "La nota "),
+                                TextSpan(
+                                  text: note.title,
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const TextSpan(text: " supera i 100.000 caratteri e non può essere copiata negli appunti."),
+                              ],
+                            ),
+                          ),
                           actions: [
                             TextButton(
                               onPressed: () {
                                 Navigator.of(context).pop();
                               },
-                              child: Text("OK"),
+                              child: const Text("OK"),
                             ),
                           ],
                         );
@@ -156,13 +196,12 @@ class _NotesPageState extends State<NotesPage> {
                   }
                 },
               ),
-
               ListTile(
-                leading: Icon(Icons.info_rounded),
-                title: Text('Info'),
+                leading: const Icon(Icons.info_rounded),
+                title: const Text('Info'),
                 onTap: () {
-                  Navigator.of(context).pop(); // Chiude il menù
-                  _showNoteInfo(context, note); // Mostra info
+                  Navigator.of(context).pop();
+                  _showNoteInfo(context, note);
                 },
               ),
             ],
@@ -172,38 +211,44 @@ class _NotesPageState extends State<NotesPage> {
     );
   }
 
+  void _showNoteInfo(BuildContext context, Note note) {
+    final content = note.content;
+    final wordCount = content.trim().isEmpty ? 0 : content.trim().split(RegExp(r'\s+')).length;
+    final characterCount = content.length;
 
-    void _showNoteInfo(BuildContext context, Note note) {
-      final content = note.content;
-      final wordCount = content.trim().isEmpty ? 0 : content.trim().split(RegExp(r'\s+')).length;
-      final characterCount = content.length;
-
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: Text('Info Nota'),
-            content: Text(
-                'Titolo: ${note.title}\n'
-                'Data creazione: ${note.creationDate.toLocal().toString().split(' ')[0]}\n'
-                'Ultima modifica: ${note.lastModifiedDate?.toLocal().toString().split(' ')[0]}\n\n'
-                    'Numero di parole: $wordCount\n'
-                    'Numero di caratteri: $characterCount',
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Info Nota'),
+          content: RichText(
+            text: TextSpan(
+              style: DefaultTextStyle.of(context).style,
+              children: <TextSpan>[
+                const TextSpan(text: 'Titolo: ', style: TextStyle(fontWeight: FontWeight.normal)),
+                TextSpan(text: note.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                TextSpan(text: '\nData creazione: ${_formatDate(note.creationDate)}\n'),
+                TextSpan(text: 'Ultima modifica: ${_formatDate(note.lastModifiedDate ?? DateTime.now())}\n'),
+                TextSpan(text: 'Numero di parole: $wordCount\n'),
+                TextSpan(text: 'Numero di caratteri: $characterCount'),
+              ],
             ),
-            actions: <Widget>[
-              TextButton(
-                child: Text('Chiudi'),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          );
-        },
-      );
-    }
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Chiudi'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
 
-  void _showQRCode(BuildContext context, String noteContent) {
+  void _showQRCode(BuildContext context, Note note) {
+    final noteContent = note.content;
     final contentLength = noteContent.characters.length;
 
     if (contentLength > 2500) {
@@ -212,7 +257,16 @@ class _NotesPageState extends State<NotesPage> {
         builder: (BuildContext context) {
           return AlertDialog(
             title: const Text('Testo troppo lungo!'),
-            content: const Text('La nota supera il limite massimo di caratteri per generare un codice QR.'),
+            content: RichText(
+              text: TextSpan(
+                style: const TextStyle(color: Colors.black), // Colore del testo
+                children: [
+                  TextSpan(text: 'La nota ', style: const TextStyle(fontWeight: FontWeight.normal)), // Testo normale
+                  TextSpan(text: note.title, style: const TextStyle(fontWeight: FontWeight.bold)), // Titolo in grassetto
+                  const TextSpan(text: ' supera il limite massimo di caratteri per generare un codice QR.'),
+                ],
+              ),
+            ),
             actions: <Widget>[
               TextButton(
                 child: const Text('Chiudi'),
@@ -234,14 +288,14 @@ class _NotesPageState extends State<NotesPage> {
           ),
           child: Container(
             padding: const EdgeInsets.all(20),
-            width: MediaQuery.of(context).size.width, // Larghezza quasi a schermo intero
-            height: MediaQuery.of(context).size.height * 0.6, // Altezza dello schermo
+            width: MediaQuery.of(context).size.width,
+            height: MediaQuery.of(context).size.height * 0.6,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Condividi Nota con QR',
-                  style: TextStyle(fontSize: 24), // Aumenta la dimensione del titolo
+                Text(
+                  note.title,
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),
@@ -255,7 +309,7 @@ class _NotesPageState extends State<NotesPage> {
                 QrImageView(
                   data: noteContent,
                   version: QrVersions.auto,
-                  size: 300.0, // Dimensione del QR code
+                  size: 300.0,
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton(
@@ -271,22 +325,18 @@ class _NotesPageState extends State<NotesPage> {
   }
 
 
-
-
-
-
   @override
-    Widget build(BuildContext context) {
-      if (!Hive.isBoxOpen('notesBox')) {
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('Le mie Note'),
-          ),
-          body: const Center(
-            child: CircularProgressIndicator(),
-          ),
-        );
-      }
+  Widget build(BuildContext context) {
+    if (!Hive.isBoxOpen('notesBox')) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Le mie Note'),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
 
     return Scaffold(
       body: ValueListenableBuilder(
@@ -294,20 +344,27 @@ class _NotesPageState extends State<NotesPage> {
         builder: (context, Box<Note> box, _) {
           if (box.values.isEmpty) {
             return const Center(
-              child: Text('Nessuna nota salvata.'),
-            );             } else {
+              child: Text(
+                'Nessuna nota salvata',
+                style: TextStyle(fontSize: 24),
+              ),
+            );
+          } else {
             final notes = box.values.toList();
             return ListView.builder(
               itemCount: notes.length,
               itemBuilder: (context, index) {
                 final note = notes[index];
                 return ListTile(
-                  title: Text(note.title),
+                  title: Text(
+                      note.title,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   subtitle: Text(
-                    'Ultima modifica: ${note.lastModifiedDate?.toLocal().toString().split(' ')[0]}',
+                    'Ultima modifica: ${_formatDate(note.lastModifiedDate ?? DateTime.now())}',
                   ),
                   onTap: () => _editNote(note, index),
-                  onLongPress: () =>_showNoteOptions(context, note, index),
+                  onLongPress: () => _showNoteOptions(context, note, index),
                 );
               },
             );
@@ -315,40 +372,15 @@ class _NotesPageState extends State<NotesPage> {
         },
       ),
       floatingActionButton: IconButton(
-        icon:  const Icon(Icons.add),
+        icon: const Icon(Icons.add),
         style: ButtonStyle(
-
           foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
           backgroundColor: WidgetStateProperty.all<Color>(Colors.red),
           shadowColor: WidgetStateProperty.all<Color>(Colors.red),
         ),
-
-      onPressed: () => _navigateToAddNoteTitlePage(context),
+        onPressed: () => _navigateToAddNoteTitlePage(context),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }
-
-
-
-
-
-
-
-/*
-floatingActionButton: IconButton(
-          icon: const Icon(Icons.add),
-          style: ButtonStyle(
-            foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-            backgroundColor: WidgetStateProperty.all<Color>(Colors.red),
-            shadowColor: WidgetStateProperty.all<Color>(Colors.red),
-
-          ),
-          onPressed: () => _navigateToAddNoteTitlePage(context),
-        ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
- */
-
-
-

@@ -12,14 +12,14 @@ class Note extends HiveObject {
   DateTime creationDate;
 
   @HiveField(3)
-  DateTime? lastModifiedDate;
+  DateTime lastModifiedDate; // Cambiato per non essere nullable
 
   Note({
     required this.title,
     required this.content,
     required this.creationDate,
     DateTime? lastModifiedDate,
-  }): lastModifiedDate = lastModifiedDate ?? creationDate;
+  }) : lastModifiedDate = lastModifiedDate ?? creationDate; // Imposta lastModifiedDate se non fornito
 }
 
 class NoteAdapter extends TypeAdapter<Note> {
@@ -32,7 +32,7 @@ class NoteAdapter extends TypeAdapter<Note> {
       title: reader.readString(),
       content: reader.readString(),
       creationDate: DateTime.parse(reader.readString()),
-      lastModifiedDate: DateTime.parse(reader.readString()),
+      lastModifiedDate: DateTime.parse(reader.readString()), // Leggi lastModifiedDate
     );
   }
 
@@ -40,10 +40,7 @@ class NoteAdapter extends TypeAdapter<Note> {
   void write(BinaryWriter writer, Note obj) {
     writer.writeString(obj.title);
     writer.writeString(obj.content);
-    writer.writeString(obj.creationDate.toIso8601String());
-    writer.writeString(obj.lastModifiedDate!.toIso8601String());
+    writer.writeString(obj.creationDate.toIso8601String()); // Scrivi creationDate
+    writer.writeString(obj.lastModifiedDate.toIso8601String()); // Scrivi lastModifiedDate
   }
 }
-
-
-
