@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:appmobile/scritturaNota.dart';
+import 'package:App_Note/scritturaNota.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_sound/public/flutter_sound_player.dart';

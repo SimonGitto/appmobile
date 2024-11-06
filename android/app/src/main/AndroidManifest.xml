@@ -7,9 +7,11 @@
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
+
 
     <application
-        android:label="appmobile"
+        android:label="App Note"
         tools:replace="android:icon, android:label"
         android:icon="@mipmap/ic_launcher">
         <activity
